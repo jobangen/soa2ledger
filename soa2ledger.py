@@ -3,6 +3,7 @@ import pandas as pd  # type: ignore
 import tempfile
 import os
 import argparse
+from datetime import datetime
 from subprocess import call
 from configparser import ConfigParser
 from typing import Iterator, Any, List, Dict
@@ -10,6 +11,8 @@ from typing import Iterator, Any, List, Dict
 default_options = {'ledger_indent': 4,
                    'reverse': 'True',
                    'editor': os.getenv('EDITOR'),
+                   'input_date_format': '%Y-%m-%d',
+                   'output_date_format': '%Y-%m-%d',
                    'rules': None,
                    'ledger_file': None,
                    'def_asset_acc': None,
@@ -130,8 +133,8 @@ class Entry():
         self.options = options
         self.EL = EL
         self.def_asset_acc: str = options.get('def_asset_acc')  # type: ignore
-        self.book_date = self.eval_rule('book_date')
-        self.val_date = self.eval_rule('val_date')
+        self.book_date = self.reformat_timestring(self.eval_rule('book_date'))
+        self.val_date = self.reformat_timestring(self.eval_rule('val_date'))
         self.amount = self.eval_rule('amount')
         self.currency = self.eval_rule('currency').replace(".", ",")
         self.creditor: str = self.eval_rule('creditor')
@@ -152,6 +155,18 @@ class Entry():
             return eval(rule)
         except AttributeError:
             return 'None'
+
+    def reformat_timestring(self, timestamp):
+        """
+        Reformat timestamp according to options.
+        """
+        input_date_format = self.options.get('input_date_format')
+        output_date_format = self.options.get('output_date_format')
+        if input_date_format == output_date_format:
+            return timestamp
+        else:
+            datetime_obj = datetime.strptime(timestamp, input_date_format)
+            return datetime_obj.strftime(output_date_format)
 
     def build_info_string(self) -> str:
         info_string = (f"; {self.book_date}={self.val_date}"
